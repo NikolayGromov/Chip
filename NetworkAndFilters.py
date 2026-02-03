@@ -211,13 +211,16 @@ plt.savefig("Predicted.png")
 #plt.show()
 
 ca1 = np.concatenate([np.zeros(2016), sm_preds[500:1500][::16], np.zeros(2017)]) / 10
-ca1 = np.clip((-ca1), a_min=0, a_max=None)
+print("ca1", np.unique(ca1))
+if ca1.min() < 0:
+    ca1 = np.clip((-ca1), a_min=0, a_max=None)
+print("ca1", np.unique(ca1))
 def Convert(x, old_low=0, old_high=3.3, new_low=0, new_high=4095):
     interval_0_1 = (x - old_low) / (old_high - old_low)
     scaled = new_low + (new_high - new_low) * interval_0_1
     return scaled.astype(int)
     
-ca1_converted = (Convert(ca1) * 2.8).astype(int) # change 1 to any multiplier
+ca1_converted = (Convert(ca1) * 5.6).astype(int) # change 1 to any multiplier
 print("len", (ca1_converted > 0).sum())
 print("uniq", np.unique(ca1_converted))
 
