@@ -233,6 +233,6 @@ import os
 text = ""
 with open("Digits.txt", 'r') as filehandle:
     text = filehandle.read()
-    text = "{" + text[:-2] + "};"
+    text = "{" + text[:-2] + "};\n"
 with open("Digits.txt", 'w') as filehandle:
     filehandle.write(text)
