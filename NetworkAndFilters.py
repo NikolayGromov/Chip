@@ -1,22 +1,52 @@
+import argparse
+import os
+from pathlib import Path
+
 import numpy as np
 import torch
 from torch import nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from scipy.ndimage import gaussian_filter
-import matplotlib.ticker as ticker
 from scipy import stats
 import scipy.io
 #%matplotlib inline
+
+BASE_DIR = Path(__file__).resolve().parent
+MPL_CONFIG_DIR = BASE_DIR / ".matplotlib"
+MPL_CONFIG_DIR.mkdir(exist_ok=True)
+os.environ.setdefault("MPLCONFIGDIR", str(MPL_CONFIG_DIR))
+
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+
+
+def resolve_path(path_str):
+    path = Path(path_str)
+    return path if path.is_absolute() else BASE_DIR / path
+
+
+parser = argparse.ArgumentParser(description="Generate Digits.txt with the LSTM model.")
+parser.add_argument("--model-file", default="lstm_model.pth", help="Path to the LSTM weights file.")
+parser.add_argument("--input-signal", default="VisibleAnswer.txt", help="Path to the input signal file.")
+parser.add_argument("--digits-output", default="Digits.txt", help="Path to the generated Digits.txt file.")
+parser.add_argument("--plots-dir", default="plots/lstm", help="Directory for generated plots.")
+ARGS = parser.parse_args()
+PLOTS_DIR = resolve_path(ARGS.plots_dir)
+PLOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 MAXLEN = 20000
 
 Hs = 7
+
+
+def save_plot(filename):
+    plt.savefig(PLOTS_DIR / filename)
+    plt.close()
 
 def removeArts(signal):
     s = signal.copy()
@@ -38,7 +68,7 @@ def gausFilter(signal, sigma = 35):
     min2 = np.min(gf)
     return gf*min1/min2
 
-ca3 =  np.loadtxt("VisibleAnswer.txt")#("Amp100_CA3")
+ca3 = np.loadtxt(resolve_path(ARGS.input_signal))#("Amp100_CA3")
 
 
 
@@ -54,7 +84,7 @@ plt.figure(figsize=(16, 9))
 plt.plot(normS, label="input")
 plt.plot([0, len(normS)], [Hs, Hs], label="Hs")
 plt.legend()
-plt.savefig("Hs.png")
+save_plot("Hs.png")
 last_max_index = indices[-1]#1000
 print(indices)
 print(len(indices))
@@ -63,22 +93,22 @@ print("argmax", last_max_index)
 plt.figure(figsize=(16, 9))
 plt.plot(ca3[last_max_index-100:last_max_index+100], label="input")
 plt.legend()
-plt.savefig("RawInputSignalPart.png")
+save_plot("RawInputSignalPart.png")
 
 plt.figure(figsize=(16, 9))
 plt.plot(removeArts(ca3[last_max_index-1000:last_max_index+2000]), label="input")
 plt.legend()
-plt.savefig("RemovedArtefact.png")
+save_plot("RemovedArtefact.png")
 
 plt.figure(figsize=(16, 9))
 plt.plot(normalization(removeArts(ca3[last_max_index-1000:last_max_index+2000])), label="input")
 plt.legend()
-plt.savefig("RemovedArtefactAndNorm.png")
+save_plot("RemovedArtefactAndNorm.png")
 
 plt.figure(figsize=(16, 9))
 plt.plot(gausFilter(normalization(removeArts(ca3[last_max_index-1000:last_max_index+2000])), sigma=5), label="input")
 plt.legend()
-plt.savefig("RemovedArtefactAndNormAndFilter.png")
+save_plot("RemovedArtefactAndNormAndFilter.png")
 
 signal_test_ca3 = gausFilter(normalization(removeArts(ca3[last_max_index-1000:last_max_index+2000]))) / 10
 print(signal_test_ca3.shape)
@@ -86,7 +116,7 @@ print(signal_test_ca3.shape)
 plt.figure(figsize=(16, 9))
 plt.plot(signal_test_ca3, label="input")
 plt.legend()
-plt.savefig("NetworkInput.png")
+save_plot("NetworkInput.png")
 
 
 h_params_loss = [1, 1000, 200, 0.2, 2, "interval"]
@@ -186,7 +216,7 @@ test_dataloader = DataLoader(test_inout_seq, batch_size=batch_size, shuffle=Fals
 
 model_lstm = LSTMModel(input_size=1, hidden_layer_size=n_hidden, num_layers=n_layers, output_size=1, dropout=dropout)
 model_lstm = model_lstm#.to('cuda')
-model_lstm.load_state_dict(torch.load("lstm_model.pth", map_location=torch.device('cpu')))
+model_lstm.load_state_dict(torch.load(resolve_path(ARGS.model_file), map_location=torch.device('cpu')))
 
 sm_preds = GetPredSignal(model_lstm, train_window, hop_len, test_dataloader)
 print(len(test_dataloader))
@@ -207,7 +237,7 @@ plt.plot(sm_preds, label="predicted")
 
 
 plt.legend()
-plt.savefig("Predicted.png")
+save_plot("Predicted.png")
 #plt.show()
 
 ca1 = np.concatenate([np.zeros(2016), sm_preds[500:1500][::16], np.zeros(2017)]) / 10
@@ -226,13 +256,14 @@ print("uniq", np.unique(ca1_converted))
 
 print("Max", np.max(ca1_converted))
 
-np.savetxt("Digits.txt", ca1_converted, fmt='%i', newline=", ")
+digits_output_path = resolve_path(ARGS.digits_output)
+np.savetxt(digits_output_path, ca1_converted, fmt='%i', newline=", ")
 
 import os
 
 text = ""
-with open("Digits.txt", 'r') as filehandle:
+with open(digits_output_path, 'r') as filehandle:
     text = filehandle.read()
     text = "{" + text[:-2] + "};\n"
-with open("Digits.txt", 'w') as filehandle:
+with open(digits_output_path, 'w') as filehandle:
     filehandle.write(text)
