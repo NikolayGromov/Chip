@@ -161,8 +161,11 @@ def save_plot(filename):
 
 
 def main():
-    ca3 = np.loadtxt(resolve_path(ARGS.input_signal))
-
+    with open("InVivoAnswer.dat", "rb") as f:
+        data = np.frombuffer(f.read(), dtype=np.int16)
+    #ca3 = np.loadtxt(resolve_path(ARGS.input_signal))
+    ca3 = data.copy()
+    print(ca3)
     norm_signal = normalization(ca3)
     if (norm_signal[norm_signal > 0]).max() < np.abs(norm_signal[norm_signal < 0]).max():
         ca3 *= -1
@@ -175,7 +178,8 @@ def main():
     plt.legend()
     save_plot("Hs.png")
 
-    last_max_index = indices[-1]
+    #last_max_index = indices[-1]
+    last_max_index = 10000
     print(indices)
     print(len(indices))
     print("argmax", last_max_index)
@@ -231,7 +235,7 @@ def main():
         ca1 = np.clip((-ca1), a_min=0, a_max=None)
     print("ca1", np.unique(ca1))
 
-    ca1_converted = (convert(ca1) * 1).astype(int)
+    ca1_converted = (convert(ca1) * 0.4).astype(int)
     print("len", (ca1_converted > 0).sum())
     print("uniq", np.unique(ca1_converted))
     print("Max", np.max(ca1_converted))
